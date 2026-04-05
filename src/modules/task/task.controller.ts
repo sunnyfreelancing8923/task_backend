@@ -1,34 +1,46 @@
-import { Response } from "express";
-import { createTask, getTasks } from "./task.service";
+import { Response, NextFunction } from "express";
+import {
+  createTask,
+  getTasks,
+  deleteTask,
+  updateTask,
+  toggleTaskStatus,
+} from "./task.service";
 import { AuthRequest } from "../../middleware/auth.middleware";
+import {
+  createTaskSchema,
+  updateTaskSchema,
+} from "../../validators/task.validator";
 
-export const createTaskController = async (req: AuthRequest, res: Response) => {
+export const createTaskController = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
-    const { title, description } = req.body;
+    const parsed = createTaskSchema.parse(req.body);
 
-    if (!title) {
-      return res.status(400).json({
-        success: false,
-        message: "Title is required",
-      });
-    }
-
-    const task = await createTask(req.user!.userId, title, description);
+    const task = await createTask(
+      req.user!.userId,
+      parsed.title,
+      parsed.description,
+    );
 
     res.status(201).json({
       success: true,
       message: "Task created",
       data: task,
     });
-  } catch (error: any) {
-    res.status(400).json({
-      success: false,
-      message: error.message,
-    });
+  } catch (error) {
+    next(error);
   }
 };
 
-export const getTasksController = async (req: AuthRequest, res: Response) => {
+export const getTasksController = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
     const { page = "1", limit = "10", status, search } = req.query;
 
@@ -44,10 +56,67 @@ export const getTasksController = async (req: AuthRequest, res: Response) => {
       success: true,
       data,
     });
-  } catch (error: any) {
-    res.status(400).json({
-      success: false,
-      message: error.message,
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateTaskController = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const taskId = Number(req.params.id);
+    const parsed = updateTaskSchema.parse(req.body);
+
+    const updatedTask = await updateTask(req.user!.userId, taskId, parsed);
+
+    res.status(200).json({
+      success: true,
+      message: "Task updated",
+      data: updatedTask,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteTaskController = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const taskId = Number(req.params.id);
+
+    await deleteTask(req.user!.userId, taskId);
+
+    res.status(200).json({
+      success: true,
+      message: "Task deleted",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const toggleTaskController = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const taskId = Number(req.params.id);
+
+    const task = await toggleTaskStatus(req.user!.userId, taskId);
+
+    res.status(200).json({
+      success: true,
+      message: "Task status toggled",
+      data: task,
+    });
+  } catch (error) {
+    next(error);
   }
 };

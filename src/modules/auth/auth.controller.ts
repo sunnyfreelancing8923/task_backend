@@ -1,56 +1,90 @@
-import { Request, Response } from "express";
-import { registerUser, loginUser } from "./auth.service";
+import { Request, Response, NextFunction } from "express";
+import { AuthRequest } from "../../middleware/auth.middleware";
+import {
+  registerUser,
+  loginUser,
+  refreshAccessToken,
+  logoutUser,
+} from "./auth.service";
+import {
+  registerSchema,
+  loginSchema,
+  refreshSchema,
+} from "../../validators/auth.validator";
 
-// ✅ REGISTER
-export const registerController = async (req: Request, res: Response) => {
+export const registerController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
-    const { email, password, name } = req.body;
+    const parsed = registerSchema.parse(req.body);
 
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and password are required",
-      });
-    }
-
-    const user = await registerUser(email, password, name);
+    const user = await registerUser(parsed.email, parsed.password, parsed.name);
 
     res.status(201).json({
       success: true,
       message: "User registered successfully",
       data: user,
     });
-  } catch (error: any) {
-    res.status(400).json({
-      success: false,
-      message: error.message || "Something went wrong",
-    });
+  } catch (error) {
+    next(error);
   }
 };
 
-// ✅ LOGIN
-export const loginController = async (req: Request, res: Response) => {
+export const loginController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
   try {
-    const { email, password } = req.body;
+    const parsed = loginSchema.parse(req.body);
 
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Email and password are required",
-      });
-    }
-
-    const data = await loginUser(email, password);
+    const data = await loginUser(parsed.email, parsed.password);
 
     res.status(200).json({
       success: true,
       message: "Login successful",
       data,
     });
-  } catch (error: any) {
-    res.status(400).json({
-      success: false,
-      message: error.message || "Something went wrong",
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const refreshController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const parsed = refreshSchema.parse(req.body);
+
+    const data = await refreshAccessToken(parsed.refreshToken);
+
+    res.status(200).json({
+      success: true,
+      message: "Token refreshed",
+      data,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const logoutController = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    await logoutUser(req.user!.userId);
+
+    res.status(200).json({
+      success: true,
+      message: "Logged out successfully",
+    });
+  } catch (error) {
+    next(error);
   }
 };

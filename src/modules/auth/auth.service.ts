@@ -1,8 +1,12 @@
 import prisma from "../../config/prisma";
 import { hashPassword, comparePassword } from "../../utils/hash";
-import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyRefreshToken,
+} from "../../utils/jwt";
+import { AppError } from "../../utils/AppError";
 
-// ✅ REGISTER
 export const registerUser = async (
   email: string,
   password: string,
@@ -13,7 +17,7 @@ export const registerUser = async (
   });
 
   if (existingUser) {
-    throw new Error("User already exists");
+    throw new AppError("User already exists", 400);
   }
 
   const hashedPassword = await hashPassword(password);
@@ -26,7 +30,6 @@ export const registerUser = async (
     },
   });
 
-  // ❌ don't return full user
   return {
     id: user.id,
     email: user.email,
@@ -35,20 +38,19 @@ export const registerUser = async (
   };
 };
 
-// ✅ LOGIN
 export const loginUser = async (email: string, password: string) => {
   const user = await prisma.user.findUnique({
     where: { email },
   });
 
   if (!user) {
-    throw new Error("Invalid credentials");
+    throw new AppError("Invalid credentials", 401);
   }
 
   const isMatch = await comparePassword(password, user.password);
 
   if (!isMatch) {
-    throw new Error("Invalid credentials");
+    throw new AppError("Invalid credentials", 401);
   }
 
   const accessToken = generateAccessToken(user.id);
@@ -68,4 +70,33 @@ export const loginUser = async (email: string, password: string) => {
       name: user.name,
     },
   };
+};
+
+export const refreshAccessToken = async (refreshToken: string) => {
+  if (!refreshToken) {
+    throw new AppError("Refresh token required", 400);
+  }
+
+  const decoded = verifyRefreshToken(refreshToken) as { userId: number };
+
+  const user = await prisma.user.findUnique({
+    where: { id: decoded.userId },
+  });
+
+  if (!user || user.refreshToken !== refreshToken) {
+    throw new AppError("Invalid refresh token", 401);
+  }
+
+  const accessToken = generateAccessToken(user.id);
+
+  return { accessToken };
+};
+
+export const logoutUser = async (userId: number) => {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { refreshToken: null },
+  });
+
+  return true;
 };
