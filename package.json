@@ -4,9 +4,8 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "nodemon src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js",
-    "postinstall": "prisma generate"
+    "build": "tsc && prisma generate && prisma migrate deploy",
+    "start": "node dist/server.js"
   },
   "type": "commonjs",
   "dependencies": {
